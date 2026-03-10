@@ -89,12 +89,47 @@ function analyzeContent() {
   }
 
   const detectedType = getContentType(content);
-  const result = detectedType === 'Historia de usuario' ? validateUserStory(content) : validateApiContract(content);
+  let result;
+  try {
+    result = detectedType === 'Historia de usuario' ? validateUserStory(content) : validateApiContract(content);
+  } catch (error) {
+    result = buildAnalysisFallback(error);
+  }
 
   renderValidation(detectedType, result);
-  generatedCases = generateTestCases(detectedType, content, result);
+  try {
+    generatedCases = generateTestCases(detectedType, content, result);
+  } catch (error) {
+    generatedCases = buildCaseGenerationFallback(detectedType, error);
+  }
   renderTestCases(generatedCases);
   exportBtn.disabled = generatedCases.length === 0;
+}
+
+function buildAnalysisFallback(error) {
+  return {
+    checks: [{ label: 'Análisis automático ejecutado sin bloqueo', status: 'warn' }],
+    observations: [
+      'No se pudo completar el análisis detallado, pero puedes continuar generando casos de prueba.',
+      `Detalle técnico: ${error?.message || 'Error no identificado'}`
+    ],
+    score: 0,
+    isValid: false
+  };
+}
+
+function buildCaseGenerationFallback(type, error) {
+  return [
+    createGherkinCase(
+      `Generación de pruebas con análisis incompleto (${type})`,
+      'Alta',
+      'Contingencia',
+      'Continuidad de diseño de pruebas',
+      'el análisis automático presenta errores o incompletitud',
+      'QA solicita generar casos base sin bloquear el proceso',
+      `se obtiene al menos un caso utilizable y se registra: ${error?.message || 'Error no identificado'}`
+    )
+  ];
 }
 
 function getContentType(text) {
