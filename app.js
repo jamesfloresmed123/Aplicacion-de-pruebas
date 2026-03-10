@@ -30,8 +30,14 @@ modeButtons.forEach((btn) => {
 fileInput.addEventListener('change', async (event) => {
   const file = event.target.files?.[0];
   if (!file) return;
-  const text = await file.text();
-  inputText.value = text;
+
+  try {
+    const text = await file.text();
+    inputText.value = text;
+    analyzeContent();
+  } catch (error) {
+    alert('No se pudo leer el archivo. Verifica el formato e inténtalo nuevamente.');
+  }
 });
 
 exampleBtn.addEventListener('click', () => {
@@ -42,27 +48,7 @@ exampleBtn.addEventListener('click', () => {
   }
 });
 
-analyzeBtn.addEventListener('click', () => {
-  const content = inputText.value.trim();
-  if (!content) {
-    alert('Ingresa o sube una historia de usuario o contrato API.');
-    return;
-  }
-
-  const detectedType = getContentType(content);
-  const result = detectedType === 'Historia de usuario' ? validateUserStory(content) : validateApiContract(content);
-
-  renderValidation(detectedType, result);
-  if (result.isValid) {
-    generatedCases = generateTestCases(detectedType, content);
-    renderTestCases(generatedCases);
-    exportBtn.disabled = false;
-  } else {
-    generatedCases = [];
-    exportBtn.disabled = true;
-    testCasesEl.innerHTML = '<p class="placeholder">No se generan casos hasta resolver las observaciones.</p>';
-  }
-});
+analyzeBtn.addEventListener('click', analyzeContent);
 
 clearBtn.addEventListener('click', () => {
   inputText.value = '';
@@ -73,22 +59,43 @@ clearBtn.addEventListener('click', () => {
   scoreEl.textContent = 'Puntaje: —';
   checksListEl.innerHTML = '';
   observationsEl.innerHTML = '<div class="placeholder">Aún no hay observaciones.</div>';
-  testCasesEl.innerHTML = '<div class="placeholder">Analiza un contenido válido para generar casos.</div>';
+  testCasesEl.innerHTML = '<div class="placeholder">Analiza un contenido para generar casos.</div>';
 });
 
 exportBtn.addEventListener('click', () => {
   if (generatedCases.length === 0) return;
-  const header = 'id,titulo,prioridad,tipo,resultado_esperado';
-  const rows = generatedCases.map((t, i) => `${i + 1},"${t.title}",${t.priority},${t.type},"${t.expected}"`);
+
+  const header = 'id,escenario,prioridad,tipo,gherkin';
+  const rows = generatedCases.map((testCase, i) => {
+    const gherkinLine = testCase.gherkin.replace(/\n/g, ' | ').replace(/"/g, '""');
+    return `${i + 1},"${testCase.scenario}",${testCase.priority},${testCase.type},"${gherkinLine}"`;
+  });
+
   const csv = [header, ...rows].join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'casos-prueba.csv';
+  a.download = 'casos-prueba-gherkin.csv';
   a.click();
   URL.revokeObjectURL(url);
 });
+
+function analyzeContent() {
+  const content = inputText.value.trim();
+  if (!content) {
+    alert('Ingresa o sube una historia de usuario o contrato API.');
+    return;
+  }
+
+  const detectedType = getContentType(content);
+  const result = detectedType === 'Historia de usuario' ? validateUserStory(content) : validateApiContract(content);
+
+  renderValidation(detectedType, result);
+  generatedCases = generateTestCases(detectedType, content, result);
+  renderTestCases(generatedCases);
+  exportBtn.disabled = generatedCases.length === 0;
+}
 
 function getContentType(text) {
   if (selectedMode === 'story') return 'Historia de usuario';
@@ -181,27 +188,141 @@ function renderValidation(type, result) {
   observationsEl.innerHTML = `<ul class="observations-list">${result.observations.map((o) => `<li>${o}</li>`).join('')}</ul>`;
 }
 
-function generateTestCases(type, content) {
+function generateTestCases(type, content, validationResult) {
   if (type === 'Historia de usuario') {
-    return [
-      { title: 'Flujo principal cumple objetivo del usuario', priority: 'Alta', type: 'Funcional', expected: 'Usuario completa la acción y obtiene resultado esperado.' },
-      { title: 'Validar criterio Given/When/Then #1', priority: 'Alta', type: 'Aceptación', expected: 'Se cumple exactamente el criterio declarado.' },
-      { title: 'Escenario negativo con datos inválidos', priority: 'Media', type: 'Negativo', expected: 'Sistema bloquea operación y muestra mensaje claro.' },
-      { title: 'Control de autorización por rol', priority: 'Media', type: 'Seguridad', expected: 'Solo usuarios permitidos acceden al flujo.' }
+    const tests = [
+      createGherkinCase(
+        'Validar flujo principal de la historia',
+        'Alta',
+        'Aceptación',
+        'Flujo principal de historia de usuario',
+        'el usuario cumple las precondiciones del negocio',
+        'ejecuta el flujo principal definido en la historia',
+        'el sistema muestra el resultado esperado y aporta el beneficio descrito'
+      ),
+      createGherkinCase(
+        'Validar criterio de aceptación principal',
+        'Alta',
+        'Aceptación',
+        'Cumplimiento de criterios Given/When/Then',
+        'existe al menos un criterio de aceptación definido',
+        'se ejecuta el escenario descrito por el criterio',
+        'el resultado coincide exactamente con el criterio de aceptación'
+      ),
+      createGherkinCase(
+        'Validar manejo de datos inválidos',
+        'Media',
+        'Negativo',
+        'Manejo de errores funcionales',
+        'el usuario ingresa datos inválidos o incompletos',
+        'intenta completar la operación',
+        'el sistema bloquea la acción y muestra un mensaje claro'
+      ),
+      createGherkinCase(
+        'Validar control de autorización',
+        'Media',
+        'Seguridad',
+        'Control de acceso por roles',
+        'un usuario sin permisos intenta acceder al flujo',
+        'solicita la funcionalidad restringida',
+        'el sistema deniega el acceso y registra el intento'
+      )
     ];
+
+    if (!validationResult.isValid) {
+      tests.unshift(
+        createGherkinCase(
+          'Refinar historia con observaciones detectadas',
+          'Alta',
+          'Mejora',
+          'Mejora de calidad de historia de usuario',
+          'la historia presenta observaciones de claridad o completitud',
+          'el equipo revisa las observaciones y ejecuta un refinamiento funcional',
+          'la historia queda clara, consistente y verificable para QA'
+        )
+      );
+    }
+
+    return tests;
   }
 
   const endpoints = [...content.matchAll(/\b(GET|POST|PUT|PATCH|DELETE)\s+(\/[\w\-\/{}/]*)/g)];
   const tests = [];
-  endpoints.forEach((m) => {
-    const method = m[1];
-    const path = m[2];
-    tests.push({ title: `${method} ${path} responde éxito`, priority: 'Alta', type: 'API', expected: 'Retorna código 2xx con estructura esperada.' });
-    tests.push({ title: `${method} ${path} valida campos obligatorios`, priority: 'Alta', type: 'API Negativo', expected: 'Retorna 4xx cuando faltan campos requeridos.' });
-    tests.push({ title: `${method} ${path} con credenciales inválidas`, priority: 'Media', type: 'Seguridad API', expected: 'Retorna 401/403 si autenticación falla.' });
+  endpoints.forEach((match) => {
+    const method = match[1];
+    const path = match[2];
+
+    tests.push(
+      createGherkinCase(
+        `${method} ${path} responde exitosamente`,
+        'Alta',
+        'API',
+        `${method} ${path} - Respuesta exitosa`,
+        `el endpoint ${method} ${path} está disponible y autenticado`,
+        `el cliente envía una solicitud válida a ${method} ${path}`,
+        'el servicio responde con código 2xx y estructura esperada'
+      )
+    );
+
+    tests.push(
+      createGherkinCase(
+        `${method} ${path} valida campos obligatorios`,
+        'Alta',
+        'API Negativo',
+        `${method} ${path} - Validación de entrada`,
+        `el endpoint ${method} ${path} define campos requeridos`,
+        'el cliente omite un campo obligatorio en la solicitud',
+        'el servicio responde con 4xx e informa el campo faltante'
+      )
+    );
+
+    tests.push(
+      createGherkinCase(
+        `${method} ${path} rechaza credenciales inválidas`,
+        'Media',
+        'Seguridad API',
+        `${method} ${path} - Seguridad de autenticación`,
+        `el endpoint ${method} ${path} requiere autenticación`,
+        'el cliente envía credenciales inválidas o expiradas',
+        'el servicio responde con 401 o 403 sin exponer datos sensibles'
+      )
+    );
   });
 
+  if (!tests.length) {
+    tests.push(
+      createGherkinCase(
+        'Validar contrato API mínimo con entradas y salidas básicas',
+        'Alta',
+        'API Exploratorio',
+        'Contrato API incompleto o no estructurado',
+        'el contrato no define endpoints de forma explícita',
+        'QA ejecuta validaciones exploratorias sobre request, response y errores',
+        'se identifican brechas del contrato y se documentan hallazgos para ajuste'
+      )
+    );
+  }
+
+  if (!validationResult.isValid) {
+    tests.unshift(
+      createGherkinCase(
+        'Revisar observaciones del contrato sin bloquear pruebas',
+        'Media',
+        'Mejora API',
+        'Refinamiento de contrato API',
+        'el análisis detecta observaciones en el contrato',
+        'el equipo prioriza observaciones y ejecuta pruebas con el contrato actual',
+        'se generan pruebas útiles mientras se planifica la mejora del contrato'
+      )
+    );
+  }
+
   return tests;
+}
+
+function createGherkinCase(scenario, priority, type, feature, given, when, then) {
+  const gherkin = `Característica: ${feature}\n  Escenario: ${scenario}\n    Dado ${given}\n    Cuando ${when}\n    Entonces ${then}`;
+  return { scenario, priority, type, feature, given, when, then, gherkin };
 }
 
 function renderTestCases(cases) {
@@ -209,5 +330,10 @@ function renderTestCases(cases) {
     testCasesEl.textContent = 'No se detectaron casos automáticos.';
     return;
   }
-  testCasesEl.innerHTML = `<ol class="test-list">${cases.map((c) => `<li class="test-case"><strong>${c.title}</strong><br><small>Tipo: ${c.type} | Prioridad: ${c.priority}</small><br>Esperado: ${c.expected}</li>`).join('')}</ol>`;
+
+  testCasesEl.innerHTML = `<ol class="test-list">${cases
+    .map(
+      (testCase) => `<li class="test-case"><strong>${testCase.scenario}</strong><br><small>Tipo: ${testCase.type} | Prioridad: ${testCase.priority}</small><pre>${testCase.gherkin}</pre></li>`
+    )
+    .join('')}</ol>`;
 }

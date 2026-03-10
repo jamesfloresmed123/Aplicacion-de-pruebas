@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>QA Copilot - Validador Inteligente QA</title>
+  <title>QACASES - Validador Inteligente QA</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <main class="app-container">
     <header class="hero">
-      <h1>QA Copilot</h1>
+      <h1>QACASES</h1>
       <p>Valida historias de usuario o contratos API y genera casos de prueba listos para QA.</p>
     </header>
 
@@ -24,6 +24,7 @@
 
       <div class="upload-row">
         <label for="fileInput" class="file-label">Subir archivo (.txt, .json, .yaml, .yml)</label>
+        <small class="upload-help">Al seleccionar un archivo, se carga y analiza automáticamente.</small>
         <input id="fileInput" type="file" accept=".txt,.json,.yaml,.yml,.md" />
       </div>
 
@@ -54,9 +55,9 @@
     <section class="card">
       <div class="tests-header">
         <h2>4) Casos de prueba</h2>
-        <button id="exportBtn" class="btn ghost" disabled>Exportar CSV</button>
+        <button id="exportBtn" class="btn ghost" disabled>Exportar CSV Gherkin</button>
       </div>
-      <div id="testCases" class="placeholder">Analiza un contenido válido para generar casos.</div>
+      <div id="testCases" class="placeholder">Analiza un contenido para generar casos.</div>
     </section>
   </main>
 
