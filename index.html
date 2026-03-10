@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QACASES - Validador Inteligente QA</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="app-container">
+    <header class="hero">
+      <h1>QACASES</h1>
+      <p>Valida historias de usuario o contratos API y genera casos de prueba listos para QA.</p>
+    </header>
+
+    <section class="card form-card">
+      <h2>1) Carga tu insumo</h2>
+
+      <div class="mode-selector" role="tablist" aria-label="Tipo de insumo">
+        <button class="mode-btn active" data-mode="auto" aria-selected="true">Auto detectar</button>
+        <button class="mode-btn" data-mode="story" aria-selected="false">Historia de usuario</button>
+        <button class="mode-btn" data-mode="api" aria-selected="false">Contrato API</button>
+      </div>
+
+      <div class="upload-row">
+        <label for="fileInput" class="file-label">Subir archivo (.txt, .json, .yaml, .yml)</label>
+        <small class="upload-help">Al seleccionar un archivo, se carga y analiza automáticamente.</small>
+        <input id="fileInput" type="file" accept=".txt,.json,.yaml,.yml,.md" />
+      </div>
+
+      <label for="inputText" class="label">Contenido</label>
+      <textarea id="inputText" rows="12" placeholder="Pega aquí tu historia o contrato API..."></textarea>
+
+      <div class="actions">
+        <button id="exampleBtn" class="btn ghost">Cargar ejemplo</button>
+        <button id="analyzeBtn" class="btn primary">Analizar</button>
+        <button id="clearBtn" class="btn ghost">Limpiar</button>
+      </div>
+    </section>
+
+    <section class="results-grid">
+      <article class="card">
+        <h2>2) Validación</h2>
+        <div id="detectedType" class="pill">Tipo detectado: —</div>
+        <div id="score" class="score">Puntaje: —</div>
+        <ul id="checksList" class="checks-list"></ul>
+      </article>
+
+      <article class="card">
+        <h2>3) Observaciones</h2>
+        <div id="observations" class="placeholder">Aún no hay observaciones.</div>
+      </article>
+    </section>
+
+    <section class="card">
+      <div class="tests-header">
+        <h2>4) Casos de prueba</h2>
+        <button id="exportBtn" class="btn ghost" disabled>Exportar CSV Gherkin</button>
+      </div>
+      <div id="testCases" class="placeholder">Analiza un contenido para generar casos.</div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
